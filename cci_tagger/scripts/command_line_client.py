@@ -32,13 +32,38 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 from datetime import datetime
+from cci_tagger.conf.settings import ERROR_FILE, LOG_FORMAT
 import json
-from os import path
 import sys
 import time
+import logging
+import verboselogs
 
-from cci_tagger.mappings import LocalVocabMappings
 from cci_tagger.tagger import ProcessDatasets
+
+verboselogs.install()
+logger = logging.getLogger()
+
+# Set up ERROR file log handler
+fh = logging.FileHandler(ERROR_FILE)
+fh.setLevel(logging.ERROR)
+LOG_FORMATTER = logging.Formatter(LOG_FORMAT)
+fh.setFormatter(LOG_FORMATTER)
+
+logger.addHandler(fh)
+
+def get_logging_level(verbosity):
+
+    map = {
+        1: logging.INFO,
+        2: verboselogs.VERBOSE,
+        3: logging.DEBUG
+    }
+
+    if verbosity > max(map):
+        verbosity = max(map)
+
+    return map.get(verbosity,logging.ERROR)
 
 
 def get_datasets_from_file(file_name):
@@ -52,9 +77,10 @@ def get_datasets_from_file(file_name):
 
     """
     datasets = set()
-    f = open(file_name, 'rb')
-    for ds in f.readlines():
-        datasets.add(ds.strip())
+    with open(file_name) as reader:
+        for ds in reader.readlines():
+            datasets.add(ds.strip())
+
     return datasets
 
 
@@ -67,12 +93,8 @@ def read_json_file(file_name):
     @return the contents of the json file
 
     """
-    base_path = path.abspath(path.dirname(__file__))
-    file_name = path.join(base_path, "json", file_name)
 
-    json_file = path.join(base_path, file_name)
-
-    with open(json_file) as json_data:
+    with open(file_name) as json_data:
         data = json.load(json_data)
 
     return data
@@ -80,127 +102,125 @@ def read_json_file(file_name):
 
 class CCITaggerCommandLineClient(object):
 
-    def parse_command_line(self, argv):
+    @staticmethod
+    def parse_command_line():
         parser = ArgumentParser(
             description='Tag observations. You can tag an individual dataset, '
             'or tag all the datasets'
-            '\nlisted in a file. By default a check sum will be '
-            'produces for each file.',
+            '\nlisted in a file.',
             epilog='\n\nA number of files are produced as output:'
             '\n  esgf_drs.json contains a list of DRS and associated files '
             'and check sums'
             '\n  moles_tags.csv contains a list of dataset paths and '
             'vocabulary URLs'
-            '\n  moles_esgf_mapping.csv contains mappings between dataset '
-            'paths and DRS'
             '\n  error.txt contains a list of errors'
             '\n\nExamples:'
             '\n  moles_esgf_tag -d /neodc/esacci/cloud/data/L3C/avhrr_noaa-16 '
             '-v'
-            '\n  moles_esgf_tag -f datapath --file_count 2 --no_check_sum -v'
+            '\n  moles_esgf_tag -f datapath --file_count 2 -v'
             '\n  moles_esgf_tag -j example.json -v'
-            '\n  moles_esgf_tag -s'
-            '\n\nDEFAULT_TERMS_FILE'
-            '\n  This file should have the format of:'
-            '\n    <property name>=<vocabulary term>'
-            "\n\n  When <property name> is 'institution', 'platform', "
-            "'sensor' or "
-            "\n  'time_coverage_resolution' then <vocabulary term> may be a "
-            "comma separated "
-            "\n  list"
-            '\n\n  For example:'
-            '\n    ecv=soil moisture'
-            '\n    processing_level=Level 4'
-            '\n',
+            '\n  moles_esgf_tag -s',
             formatter_class=RawDescriptionHelpFormatter)
 
         group = parser.add_mutually_exclusive_group(required=True)
         group.add_argument(
             '-d', '--dataset',
             help=('the full path to the dataset that is to be tagged. This '
-                  'option is used to tag a single dataset.'))
+                  'option is used to tag a single dataset.')
+        )
         group.add_argument(
             '-f', '--file',
             help=('the name of the file containing a list of datasets to '
                   'process. This option is used for tagging one or more '
-                  'datasets.'))
+                  'datasets.')
+        )
         group.add_argument(
-            '-j', '--json_mappings',
-            help=('use the json file for the list of datasets, the local vocabulary '
-                  'mappings and the defaults'))
-        group.add_argument(
-            '-s', '--show_mappings', action='store_true',
-            help='show the local vocabulary mappings')
+            '-j', '--json_file',
+            action='append',
+            help=('Use the JSON file to provide a list of datasets and also provide the mappings'
+                  'which are used by the tagging code. Useful to test datsets and specific mapping files')
+        )
 
         parser.add_argument(
-            '-m', '--use_mappings', action='store_true',
-            help=('use the local vocabulary mappings. This will map a number '
-                  'of non compliant terms to allowed terms.'))
-        parser.add_argument(
-            '-u', '--update_moles', action='store_true',
-            help=('update the MOLEs catalogue directly rather than produce '
-                  'a csv file.'))
-        parser.add_argument(
-            '-t', '--default_terms_file',
-            help=("the name of the file containing a list of default "
-                  "vocabulary terms to associate with a dataset. Property "
-                  "values for 'institution', 'platform', 'sensor' and "
-                  "'time_coverage_resolution' may be comma separated lists"))
-        parser.add_argument(
             '--file_count',
-            help='how many .nt files to look at per dataset',
-            type=int, default=0)
-        parser.add_argument(
-            '--no_check_sum', action='store_true',
-            help='do not produce a check sum for each file')
+            help='how many .nc files to look at per dataset',
+            type=int, default=0
+        )
         parser.add_argument(
             '-v', '--verbose', action='count',
             help='increase output verbosity',
-            default=0)
+            default=0
+        )
 
-        args = parser.parse_args(argv[1:])
+        args = parser.parse_args()
         datasets = None
-        json_data = None
-        if args.dataset is not None:
-            if args.verbose >= 1:
-                print("\n%s STARTED" % (time.strftime("%H:%M:%S")))
-                print("Processing %s" % args.dataset)
-            datasets = set([args.dataset])
-        elif args.file is not None:
-            if args.verbose >= 1:
-                print("\n%s STARTED" % (time.strftime("%H:%M:%S")))
-            datasets = get_datasets_from_file(args.file)
-        elif args.json_mappings is not None:
-            if args.verbose >= 1:
-                print("\n%s STARTED" % (time.strftime("%H:%M:%S")))
-            json_data = read_json_file(args.json_mappings)
-            datasets = json_data.get("datasets")
-        elif args.show_mappings:
-            print(LocalVocabMappings())
 
-        return datasets, json_data, args
+        # Set logging level
+        logger.setLevel(get_logging_level(args.verbose))
+
+        # Set up console logger
+        ch = logging.StreamHandler()
+        ch.setLevel(logger.level)
+        ch.setFormatter(LOG_FORMATTER)
+
+        logger.addHandler(ch)
+
+
+        start_time = time.strftime("%H:%M:%S")
+
+        # Read datasets from the command line
+        if args.dataset is not None:
+            datasets = {args.dataset}
+
+        # Read list of datasets from a file
+        elif args.file is not None:
+            datasets = get_datasets_from_file(args.file)
+
+        # Given a json file, get the datasets from the datasets key
+        elif args.json_file is not None:
+
+            datasets = []
+            for file in args.json_file:
+                json_data = read_json_file(file)
+
+                if json_data.get("datasets"):
+                    datasets.extend(json_data["datasets"])
+
+        # Print start time based on verbosity
+        if logger.level <= logging.INFO:
+            print(f"\n{start_time} STARTED")
+            if args.dataset:
+                print(f'Processing {args.dataset}')
+
+        return datasets, args
 
     @classmethod
-    def main(cls, argv=sys.argv):
+    def main(cls):
         start_time = datetime.now()
-        client = cls()
-        datasets, json_data, args = client.parse_command_line(argv)
-        if datasets is None:
+
+        # Get the command line arguments
+        datasets, args = cls.parse_command_line()
+
+        # Quit of there are no datasets
+        if not datasets:
+            print('You have not provided any datasets')
             sys.exit(0)
 
-        pds = ProcessDatasets(
-            checksum=not(args.no_check_sum), use_mapping=args.use_mappings,
-            verbose=args.verbose, update_moles=args.update_moles,
-            default_terms_file=args.default_terms_file, json_data=json_data)
+        if args.json_file:
+            json_file = args.json_file
+        else:
+            json_file = None
+
+        pds = ProcessDatasets(json_files=json_file)
         pds.process_datasets(datasets, args.file_count)
 
-        if args.verbose >= 1:
-            print("%s FINISHED\n\n" % (time.strftime("%H:%M:%S")))
+        if logger.level <= logging.INFO:
+            print(f'\n{time.strftime("%H:%M:%S")} FINISHED\n\n')
             end_time = datetime.now()
             time_diff = end_time - start_time
             hours, remainder = divmod(time_diff.seconds, 3600)
             minutes, seconds = divmod(remainder, 60)
-            print('Time taken %02d:%02d:%02d' % (hours, minutes, seconds))
+            print(f'Time taken {hours:02d}:{minutes:02d}:{seconds:02d}')
 
         exit(0)
 

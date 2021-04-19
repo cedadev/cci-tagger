@@ -8,23 +8,31 @@ tags for both MOLES and ESGF.
 ## Installation
 
 Create a Python virtual environment:
+**Must be Python 3**
 
 ```bash
-virtualenv tagger
-source tagger/bin/activate
+python -m venv venv
+source venv/bin/activate
 ```
 
-Find the [latest release of the code](https://github.com/cedadev/cci-tagger/releases) and install it in the virtual environment, i.e. for version 1.0.4:
+Install the latest version of the library
 
 ```bash
-pip install https://github.com/cedadev/cci-tagger/archive/v1.0.4.tar.gz
+git clone https://github.com/rsmith013/cci-tagger
+cd cci-tagger
+pip install -r requirements.txt
+pip install -e .
 ```
 
-## Usage
+## Command Line Script
+
+This script is to be used to check what the tagger outputs when fed with the JSON files. This can be used to build the JSON files and
+check they are producing what you expect. This script also produces a moles_tags files to attach to this dataset.
+
+### Usage
 
 ```
-moles_esgf_tag [-h] (-d DATASET | -f FILE | -s) [-m] [-u] [--file_count FILE_COUNT] [-t DEFAULT_TERMS_FILE]
-               [--no_check_sum] [-v]
+moles_esgf_tag [-h] (-d DATASET | -f FILE | -j JSON_FILE) [--file_count FILE_COUNT] [-v]
 ```
 
 You can tag an individual dataset, or tag all the datasets listed in a file. By default a check sum will be produces for each file.
@@ -40,53 +48,56 @@ Arguments:
     -f FILE, --file FILE  the name of the file containing a list of datasets to process. This option is used for
                           tagging one or more datasets.
 
-    -s, --show_mappings   show the local vocabulary mappings
-
-    -m, --use_mappings    use the local vocabulary mappings. This will map a number of non compliant terms to
-                          allowed terms.
-
-    -u, --update_moles    update the MOLEs catalogue directly rather than produce a csv file.
-
-    -t DEFAULT_TERMS_FILE, --default_terms_file DEFAULT_TERMS_FILE
-                          the name of the file containing a list of default vocabulary terms to associate with
-                          a dataset. Property values for 'institution', 'platform', 'sensor' and 
-                          'time_coverage_resolution' may be comma separated lists.
+    -j, --json_file       Use the JSON file to provide a list of datasets and also provide the mappings
+                          which are used by the tagging code. Useful to test datsets and specific mapping files.
 
     --file_count FILE_COUNT
-                          how many .nt files to look at per dataset
+                          how many .nc files to look at per dataset
 
-    --no_check_sum        do not produce a check sum for each file
-
-    -v, --verbose         increase output verbosity
+    -v, --verbose         increase output verbosity. Add more vs to increase verbosity.
 
 
-## Output
+### Output
 
 A number of files are produced as output:
-*  __esgf_drs.json__ contains a list of DRS and associated files and check sums
+*  __esgf_drs.json__ contains a list of DRS and associated files. Will also list all files which could not generate a DRS
 *  __moles_tags.csv__ contains a list of dataset paths and vocabulary URLs
-*  __moles_esgf_mapping.csv__ contains mappings between dataset paths and DRS
-*  __error.txt__ contains a list of errors
+*  __error.log__ contains a log of errors. This is appended to on each run so if you want a clean start, you will need to delete the file.
 
-## Examples
+### Examples
 
 ```bash
 moles_esgf_tag -d /neodc/esacci/cloud/data/L3C/avhrr_noaa-16 -v
-moles_esgf_tag -f datapath --file_count 2 --no_check_sum -m -v
-moles_esgf_tag -s
+moles_esgf_tag -f datapath --file_count 2 -v
 ```
 
-## DEFAULT\_TERMS\_FILE
-This file should have the format of:
-```bash
-<property name>=<vocabulary term>
+## Check tags
+
+This code generates a directory with HTML pages which can be used to interrogate the opensearch elasticsearch indices to check that
+the tags which you are expecting are being found. It also highlights files without DRSs
+
+### Usage
+
+```
+cci_check_tags [--conf CONF] [--output OUTPUT]
 ```
 
-When `property name` is 'institution', 'platform', 'sensor' or 'time_coverage_resolution' then `vocabulary term` may be a comma separated list
+Arguments:
 
-For example:
-```bash
-ecv=soil moisture
-processing_level=Level 4
-sensor=modis,airs
-```
+        --conf          Specify the configuration file. Defaults to use %(default)s' 
+                        DEFAULT: cci_tagger/conf/tag_check.conf
+                        
+        --output        Directory to place the output files.
+                        DEFAULT: html 
+
+### Output
+
+* index.html            The main page listing all ECVs in the index
+* ecv/<ecv_name>.html   ECV specific page. Lists all MOLES datasets in the index and displays details about them.
+
+## Breaking Changes
+
+### V2.0.0
+- Removed default terms file
+- Removed DRS version based on date
+

@@ -1,0 +1,27 @@
+{
+  "datasets": [
+    "/Users/vdn73631/Documents/dev/cci-tagger/cci_tagger/tests"
+  ],
+  "mappings": {
+    "ecv": {
+    },
+    "institution": {
+    },
+    "level": {
+    },
+    "platform": {
+    },
+    "sensor": {
+    },
+    "version": {
+    },
+    "product_string": {
+    }
+  },
+  "defaults": {
+    "ecv": "sea surface salinity",
+    "sensor": "MIRAS, Aquarius,SMAP",
+    "platform": "SMOS, SAC-D, SMAP",
+    "institution": "ACRI-ST,LOCEAN"
+  }
+}

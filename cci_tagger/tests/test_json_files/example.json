@@ -1,7 +1,7 @@
 {
 	"datasets": [
-		"path/1",
-		"path/2"
+		"/path/1",
+		"/path/2"
 	],
 	"mappings": {
 		"ecv": {
@@ -28,10 +28,19 @@
 		},
 		"version": {
 			"03.02.": "03.02"
+		},
+		"merged": {
+			"ICARE ; HYGEOS, Euratechnologies": "ICARE , HYGEOS"
 		}
 	},
 	"defaults": {
 		"platform": "Nimbus-7",
 		"sensor": "MERIS"
+	},
+	"realisations": {
+		"/path/1": "r2"
+	},
+	"overrides": {
+        "freq": "day"
 	}
 }

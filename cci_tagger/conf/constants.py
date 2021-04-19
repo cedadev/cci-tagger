@@ -28,58 +28,37 @@ ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 '''
-import ConfigParser
 
+# Values that are common across a number of modules
+BROADER_PROCESSING_LEVEL = 'broader_processing_level'
+DATA_TYPE = 'data_type'
+ECV = 'ecv'
+FREQUENCY = 'time_coverage_resolution'
+INSTITUTION = 'institution'
+PLATFORM = 'platform'
+PLATFORM_PROGRAMME = 'platform_programme'
+PLATFORM_GROUP = 'platform_group'
+PROCESSING_LEVEL = 'processing_level'
+PRODUCT_STRING = 'product_string'
+PRODUCT_VERSION = 'product_version'
+SENSOR = 'sensor'
 
-# Name of fake section to create
-SECTION_NAME = 'asection'
+# Level 2 data is mapped to satellite orbit frequency
+LEVEL_2_FREQUENCY = 'http://vocab.ceda.ac.uk/collection/cci/freq/freq_sat_orb'
 
+# List of allowed netcdf attributes
+ALLOWED_GLOBAL_ATTRS = [FREQUENCY, INSTITUTION, PLATFORM, SENSOR]
+SINGLE_VALUE_FACETS = [BROADER_PROCESSING_LEVEL, DATA_TYPE, ECV, PROCESSING_LEVEL, PRODUCT_STRING]
 
-class _FakeSecHead(object):
-    """
-    Create a fake header for the properties file so we can use ConfigParser.
+DRS_FACETS = [ECV, FREQUENCY, PROCESSING_LEVEL, DATA_TYPE, SENSOR, PLATFORM, PRODUCT_STRING, PRODUCT_VERSION]
+ALL_FACETS = [BROADER_PROCESSING_LEVEL, DATA_TYPE, ECV, FREQUENCY, INSTITUTION, PLATFORM, PLATFORM_PROGRAMME, PLATFORM_GROUP, PROCESSING_LEVEL, PRODUCT_STRING, PRODUCT_VERSION, SENSOR]
 
-    """
+# Multilabels
+MULTILABELS = {
+    FREQUENCY: 'multi-frequency',
+    INSTITUTION: 'multi-institution',
+    PLATFORM: 'multi-platform',
+    SENSOR: 'multi-sensor'
+}
 
-    def __init__(self, file_path):
-        self.file_path = file_path
-        self.sechead = '[{}]\n'.format(SECTION_NAME)
-
-    def readline(self):
-        if self.sechead:
-            try:
-                return self.sechead
-            finally:
-                self.sechead = None
-        else:
-            return self.file_path.readline()
-
-
-class Properties(object):
-    """
-    Parse the properties file.
-
-    """
-
-    def __init__(self, file_path):
-        """
-        Set up the parser using a fake section head.
-
-        @param file_path(str): the name and path of the properties file.
-
-        """
-        self.cp = ConfigParser.SafeConfigParser()
-        self.cp.readfp(_FakeSecHead(open(file_path)))
-
-    def properties(self):
-        """
-        Get the properties as a dictionary.
-
-        @return a dict where:
-                key = property name
-                value = property value
-        """
-        props = {}
-        for option in self.cp.options(SECTION_NAME):
-            props[option] = self.cp.get(SECTION_NAME, option)
-        return props
+EXCLUDE_REALISATION = 'EXCLUDE'

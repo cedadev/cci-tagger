@@ -31,7 +31,10 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'moles_esgf_tag = cci_tagger:CCITaggerCommandLineClient.main',
+            'moles_esgf_tag = cci_tagger.scripts:CCITaggerCommandLineClient.main',
+            'cci_json_check = cci_tagger.scripts:TestJSONFile.cmd',
+            'cci_check_tags = cci_tagger.scripts.check_tags:main',
+            'export_facet_json = cci_tagger.scripts.dump_facet_object:main'
         ],
     },
 
@@ -46,8 +49,10 @@ setup(
 
     # Adds dependencies
     install_requires=[
-        'SPARQLWrapper==1.7.6',
+        'SPARQLWrapper',
         'netCDF4',
-        'html5lib',
+        'six',
+        'verboselogs',
+
     ],
 )

@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+    <h1 class="mt4">{{ title }}</h1>
+    <h3>All DRS IDs in ECV</h3>
+    <ul>
+        {% for drs in drs_ids %}
+            <li>{{ drs }}</li>
+        {% endfor %}
+    </ul>
+    <div class="row">
+        <div class="col">
+            {% for dataset in datasets %}
+                <div class="card mb-3">
+                    <div class="card-header">{{ dataset.opensearch_fields.title }}</div>
+                    <div class="card-body">
+                        <h3>Summary</h3>
+                        <table class="table mb-4">
+                            <tbody>
+                            <tr>
+                                <th>Total Files</th>
+                                <td>{{ dataset.total_files }}</td>
+                            </tr>
+                            <tr>
+                                <th>Total Files without DRS</th>
+                                <td>{{ dataset.files_without_drs }}</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <table class="table table-striped">
+                            <tbody>
+                            {% for field, value in dataset.opensearch_fields.items() %}
+                                <tr>
+                                    <th>{{ field }}</th>
+                                    <td>
+
+                                        {% if value is string %}
+                                            {{ value }}
+                                        {% elif value is none %}
+                                            {{ value }}
+                                        {% elif value is mapping %}
+                                            <code>{{ value }}</code>
+                                        {% else %}
+                                            <ul>
+                                                {% for item in value %}
+                                                    <li>{{ item }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        <p>
+                            <a class="btn btn-primary" data-toggle="collapse"
+                               href="#filesWithoutDrs-{{ dataset.opensearch_fields.collection_id }}" role="button"
+                               aria-expanded="false" aria-controls="filesWithoutDrs"
+                               onclick="get_files_without_drs('{{ dataset.opensearch_fields.collection_id }}',{{ dataset.files_without_drs }})">
+                                Show Files Without DRS
+                            </a>
+                        </p>
+                        <div class="collapse" id="filesWithoutDrs-{{ dataset.opensearch_fields.collection_id }}">
+                            <div class="card card-body" id="{{ dataset.opensearch_fields.collection_id }}"
+                                 data-loaded="false">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block tail_js %}
+    <script>
+
+        function get_files_without_drs(collection_id, max_results) {
+
+            let loaded = $('#' + collection_id).data('loaded')
+            if (!loaded) {
+
+                let no_drs_query = {
+                    _source: {includes: ["info.directory", "info.name", "projects"]},
+                    query: {
+                        bool: {
+                            must: [
+                                {
+                                    term: {
+                                        "projects.opensearch.datasetId.keyword": collection_id
+                                    }
+                                }
+                            ],
+                            must_not: [
+                                {
+                                    "exists": {
+                                        "field": "projects.opensearch.drsId"
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    sort: [
+                        {_id: "asc"}
+                    ]
+                };
+
+                scroll("{{FILES_INDEX}}", no_drs_query, max_results, collection_id);
+            }
+
+
+        }
+
+        function scroll(index, body, max_results, id) {
+
+            let file_count = 0;
+            let after_key = undefined;
+
+            function get_next_page() {
+                if (after_key !== undefined) {
+                    body.search_after = after_key;
+                }
+                $.post({
+                    url: "{{HOST}}/" + index + "/_search",
+                    data: JSON.stringify(body),
+                    contentType: "application/json",
+                    success: function (data) {
+                        if (file_count < max_results) {
+                            let hits = data.hits.hits;
+                            file_count += hits.length;
+                            after_key = hits[hits.length - 1].sort;
+                            renderData(hits, id);
+                            get_next_page()
+
+
+                        } else {
+                            $("#" + id).data('loaded', true);
+                        }
+                    }
+                })
+            }
+
+            get_next_page();
+        }
+
+        function renderData(results, id) {
+            let parent = $("#" + id);
+            for (let i = 0; i < results.length; i++) {
+                let res = results[i];
+                let filename = res._source.info.directory + '/' + res._source.info.name;
+                //let card = "<div class=\"card\"><div class=\"card-header\">" + filename + "</div><div class=\"card-body\"><pre>" + syntaxHighlight(res._source.projects.opensearch) + "</pre></div></div>"
+                let pre_id = id + "-" + i;
+                let card = "<div class='row mb-2'><div class='col-11'>" + filename + "</div><div class='col-1'><a class='btn btn-primary' data-toggle='collapse' href='#" + pre_id + "' role='button'>+</a></div></div><pre class='collapse' id='" + pre_id + "'>" + syntaxHighlight(res._source.projects.opensearch) + "</pre>";
+
+                parent.append(card);
+                $('[data-toggle="collapse"]').click(function (e) {
+                    e.preventDefault();
+                    var target_element = $(this).attr("href");
+                    $(target_element).collapse('toggle');
+                    return false;
+                });
+
+            }
+        }
+
+
+        function syntaxHighlight(json) {
+            json = JSON.stringify(json, null, 4)
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+
+    </script>
+{% endblock %}

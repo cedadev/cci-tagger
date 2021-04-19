@@ -29,19 +29,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 '''
 
-# Values that are common across a number of modules
-BROADER_PROCESSING_LEVEL = 'broarder_processing_level'
-DATA_TYPE = 'data_type'
-ECV = 'ecv'
-FREQUENCY = 'time_coverage_resolution'
-INSTITUTION = 'institution'
-PLATFORM = 'platform'
-PLATFORM_PROGRAMME = 'platform_programme'
-PLATFORM_GROUP = 'platform_group'
-PROCESSING_LEVEL = 'processing_level'
-PRODUCT_STRING = 'product_string'
-PRODUCT_VERSION = 'product_version'
-SENSOR = 'sensor'
 
-# Level 2 data is mapped to satellite orbit frequency
-LEVEL_2_FREQUENCY = 'http://vocab.ceda.ac.uk/collection/cci/freq/freq_sat_orb'
+SPARQL_HOST_NAME = 'vocab.ceda.ac.uk'
+
+ESGF_DRS_FILE = 'esgf_drs.json'
+MOLES_TAGS_FILE = 'moles_tags.csv'
+MOLES_ESGF_MAPPING_FILE = 'moles_esgf_mapping.csv'
+ERROR_FILE = 'error.log'
+LOG_FORMAT = '%(name)s - %(levelname)s - %(message)s'
