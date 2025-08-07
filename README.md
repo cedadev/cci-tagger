@@ -1,5 +1,7 @@
 # CCI Tagger
 
+NOTE: This repository has been superceded and has been scheduled for archival. Please see the repository at https://github.com/cedadev/cci-tag-scanner/tree/main
+
 ## Overview
 
 This package provides a command line tool moles_esgf_tag to generate dataset
